@@ -1,21 +1,22 @@
+# -*- coding: utf-8 -*-
 '''
     Gmvault: a tool to backup and restore your gmail account.
-    Copyright (C) <2011-2012>  <guillaume Aubert (guillaume dot aubert at gmail do com)>
+    Copyright (C) <since 2011>  <guillaume Aubert (guillaume dot aubert at gmail do com)>
 
     This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
+    it under the terms of the GNU Affero General Public License as
+    published by the Free Software Foundation, either version 3 of the
+    License, or (at your option) any later version.
 
     This program is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
+    GNU Affero General Public License for more details.
 
-    You should have received a copy of the GNU General Public License
+    You should have received a copy of the GNU Affero General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
-'''
 
+'''
 import os
 
 import re
@@ -29,12 +30,18 @@ import StringIO
 import sys
 import traceback
 import random 
+import locale
+import urllib
 
-import log_utils 
+import gmv.log_utils as log_utils
+import gmv.conf.conf_helper
+import gmv.gmvault_const as gmvault_const
 
 LOG = log_utils.LoggerFactory.get_logger('gmvault_utils')
 
-class memoized(object):
+GMVAULT_VERSION = "1.9"
+
+class memoized(object): #pylint: disable=C0103
     """Decorator that caches a function's return value each time it is called.
     If called later with the same arguments, the cached value is returned, and
     not re-evaluated.
@@ -60,7 +67,7 @@ class memoized(object):
         """Support instance methods."""
         return functools.partial(self.__call__, obj)
     
-class curry:
+class Curry:
     """ Class used to implement the currification (functional programming technic) :
         Create a function from another one by instanciating some of its parameters.
         For example double = curry(operator.mul,2), res = double(4) = 8
@@ -72,11 +79,11 @@ class curry:
         
     def __call__(self, *args, **kwargs):
         if kwargs and self.kwargs:
-            kw = self.kwargs.copy()
-            kw.update(kwargs)
+            the_kw = self.kwargs.copy()
+            the_kw.update(kwargs)
         else:
-            kw = kwargs or self.kwargs
-        return self.fun(*(self.pending + args), **kw) #IGNORE:W0142
+            the_kw = kwargs or self.kwargs
+        return self.fun(*(self.pending + args), **the_kw) #pylint: disable=W0142
 
 
 
@@ -112,11 +119,28 @@ def get_exception_traceback():
     traceback.print_exception(exception_type, exception_value, exception_traceback, file = the_file)
     return the_file.getvalue()
 
+
+MULTI_SPACES_PATTERN = r"\s{2,}"
+MULTI_SPACES_RE = re.compile(MULTI_SPACES_PATTERN, flags=re.U) #to support unicode
+
+def remove_consecutive_spaces_and_strip(a_str):
+    """
+       Supress consecutive spaces to replace them with a unique one.
+       e.g "two  spaces" = "two spaces"
+    """
+    #return re.sub("\s{2,}", " ", a_str, flags=re.U).strip()
+    return MULTI_SPACES_RE.sub(u" ", a_str).strip()
+
+
+TIMER_SUFFIXES = ['y', 'w', 'd', 'h', 'm', 's']
+
 class Timer(object):
     """
        Timer Class to mesure time.
        Possess also few time utilities
     """
+    
+ 
     def __init__(self):
         
         self._start = None
@@ -124,6 +148,12 @@ class Timer(object):
     def start(self):
         """
            start the timer
+        """
+        self._start = time.time()
+        
+    def reset(self):
+        """
+           reset the timer to 0
         """
         self._start = time.time()
     
@@ -135,7 +165,13 @@ class Timer(object):
         
         return int(round(now - self._start))
     
-    def elapsed_human_time(self, suffixes=['y','w','d','h','m','s'], add_s=False, separator=' '):
+    def elapsed_ms(self):
+        """
+          return elapsed time up to micro second
+        """
+        return time.time() - self._start
+    
+    def elapsed_human_time(self, suffixes=TIMER_SUFFIXES, add_s=False, separator=' '):#pylint:disable=W0102
         """
         Takes an amount of seconds and turns it into a human-readable amount of time.
         """
@@ -154,12 +190,12 @@ class Timer(object):
             return int(round(float(still_to_be_done * in_sec)/nb_elem_done))
     
     @classmethod
-    def seconds_to_human_time(cls, seconds, suffixes=['y','w','d','h','m','s'], add_s=False, separator=' '):
+    def seconds_to_human_time(cls, seconds, suffixes=TIMER_SUFFIXES, add_s=False, separator=' '):#pylint:disable=W0102
         """
            convert seconds to human time
         """
         # the formatted time string to be returned
-        time = []
+        the_time = []
         
         # the pieces of time to iterate over (days, hours, minutes, etc)
         # - the first piece in each tuple is the suffix (d, h, w)
@@ -171,33 +207,36 @@ class Timer(object):
               (suffixes[4], 60),
               (suffixes[5], 1)]
         
+        if seconds < 1: #less than a second case
+            return "less than a second"
+        
         # for each time piece, grab the value and remaining seconds, and add it to
         # the time string
         for suffix, length in parts:
             value = seconds / length
             if value > 0:
                 seconds = seconds % length
-                time.append('%s%s' % (str(value),
+                the_time.append('%s%s' % (str(value),
                                (suffix, (suffix, suffix + 's')[value > 1])[add_s]))
             if seconds < 1:
                 break
         
-        return separator.join(time)
+        return separator.join(the_time)
 
 ZERO = datetime.timedelta(0) 
 # A UTC class.    
 class UTC(datetime.tzinfo):    
     """UTC Timezone"""    
     
-    def utcoffset(self, a_dt):  
+    def utcoffset(self, a_dt): #pylint: disable=W0613
         ''' return utcoffset '''  
         return ZERO    
     
-    def tzname(self, a_dt):
+    def tzname(self, a_dt): #pylint: disable=W0613
         ''' return tzname '''    
         return "UTC"    
         
-    def dst(self, a_dt):  
+    def dst(self, a_dt): #pylint: disable=W0613 
         ''' return dst '''      
         return ZERO  
 
@@ -265,8 +304,9 @@ def cmp_to_key(mycmp):
         Taken from functools. Not in all python versions so had to redefine it
         Convert a cmp= function into a key= function
     """
-    class K(object):
-        def __init__(self, obj, *args):
+    class Key(object): #pylint: disable=R0903
+        """Key class"""
+        def __init__(self, obj, *args): #pylint: disable=W0613
             self.obj = obj
         def __lt__(self, other):
             return mycmp(self.obj, other.obj) < 0
@@ -282,9 +322,9 @@ def cmp_to_key(mycmp):
             return mycmp(self.obj, other.obj) != 0
         def __hash__(self):
             raise TypeError('hash not implemented')
-    return K
+    return Key
     
-def get_all_directories_posterior_to(a_dir, dirs):
+def get_all_dirs_posterior_to(a_dir, dirs):
     """
            get all directories posterior
     """
@@ -293,11 +333,16 @@ def get_all_directories_posterior_to(a_dir, dirs):
     return [ name for name in sorted(dirs, key=cmp_to_key(compare_yymm_dir))\
              if compare_yymm_dir(a_dir, name) <= 0 ]
 
-def get_all_dirs_under(root_dir):
+def get_all_dirs_under(root_dir, ignored_dirs = []):#pylint:disable=W0102
     """
        Get all directory names under (1 level only) the root dir
+       params:
+          root_dir   : the dir to look under
+          ignored_dir: ignore the dir if it is in this list of dirnames 
     """
-    return [ name for name in os.listdir(root_dir) if os.path.isdir(os.path.join(root_dir, name)) ]
+    return [ name for name in os.listdir(root_dir) \
+             if ( os.path.isdir(os.path.join(root_dir, name)) \
+                and (name not in ignored_dirs) ) ]
 
 def datetime2imapdate(a_datetime):
     """
@@ -307,7 +352,7 @@ def datetime2imapdate(a_datetime):
         
         month = MONTH_CONV[a_datetime.month]
         
-        pattern = '%%d-%s-%%Y' %(month) 
+        pattern = '%%d-%s-%%Y' % (month) 
         
         return a_datetime.strftime(pattern)
     
@@ -330,6 +375,9 @@ def e2datetime(a_epoch):
 
     return new_date
 
+def get_utcnow_epoch():
+    return datetime2e(datetime.datetime.utcnow())
+
 def datetime2e(a_date):
     """
         convert datetime in epoch
@@ -341,16 +389,20 @@ def datetime2e(a_date):
     """
     return calendar.timegm(a_date.timetuple())
 
-def makedirs(aPath):
+def contains_any(string, char_set):
+    """Check whether 'string' contains ANY of the chars in 'set'"""
+    return 1 in [c in string for c in char_set]
+
+def makedirs(a_path):
     """ my own version of makedir """
     
-    if os.path.isdir(aPath):
+    if os.path.isdir(a_path):
         # it already exists so return
         return
-    elif os.path.isfile(aPath):
-        raise OSError("a file with the same name as the desired dir, '%s', already exists."%(aPath))
+    elif os.path.isfile(a_path):
+        raise OSError("a file with the same name as the desired dir, '%s', already exists."%(a_path))
 
-    os.makedirs(aPath)
+    os.makedirs(a_path)
 
 def __rmgeneric(path, __func__):
     """ private function that is part of delete_all_under """
@@ -368,20 +420,20 @@ def delete_all_under(path, delete_top_dir = False):
     
     files = os.listdir(path)
 
-    for x in files:
-        fullpath = os.path.join(path, x)
+    for the_f in files:
+        fullpath = os.path.join(path, the_f)
         if os.path.isfile(fullpath):
-            f = os.remove
-            __rmgeneric(fullpath, f)
+            new_f = os.remove
+            __rmgeneric(fullpath, new_f)
         elif os.path.isdir(fullpath):
             delete_all_under(fullpath)
-            f = os.rmdir
-            __rmgeneric(fullpath, f)
+            new_f = os.rmdir
+            __rmgeneric(fullpath, new_f)
     
     if delete_top_dir:
         os.rmdir(path)
-        
-def ordered_dirwalk(a_dir, a_wildcards= '*', sort_func = sorted):
+
+def ordered_dirwalk(a_dir, a_file_wildcards='*', a_dir_ignore_list=(), sort_func=sorted):
     """
         Walk a directory tree, using a generator.
         This implementation returns only the files in all the subdirectories.
@@ -391,21 +443,23 @@ def ordered_dirwalk(a_dir, a_wildcards= '*', sort_func = sorted):
         a_wildcards: Filtering wildcards a la unix
     """
 
-    
     sub_dirs = []
     for the_file in sort_func(os.listdir(a_dir)):
         fullpath = os.path.join(a_dir, the_file)
         if os.path.isdir(fullpath):
             sub_dirs.append(fullpath) #it is a sub_dir
-        elif fnmatch.fnmatch(fullpath, a_wildcards):
+        elif fnmatch.fnmatch(fullpath, a_file_wildcards):
             yield fullpath
-        
+
     #iterate over sub_dirs
-    for sub_dir in sub_dirs:
-        for p_elem in ordered_dirwalk(sub_dir, a_wildcards):
-            yield p_elem 
-  
-def dirwalk(a_dir, a_wildcards= '*'):
+    for sub_dir in sort_func(sub_dirs):
+        if os.path.basename(sub_dir) not in a_dir_ignore_list:
+            for p_elem in ordered_dirwalk(sub_dir, a_file_wildcards):
+                yield p_elem 
+        else:
+            LOG.debug("Ignore subdir %s" % sub_dir)
+
+def dirwalk(a_dir, a_wildcards='*'):
     """
        return all files and dirs in a directory
     """
@@ -414,31 +468,190 @@ def dirwalk(a_dir, a_wildcards= '*'):
             if fnmatch.fnmatch(the_file, a_wildcards):
                 yield os.path.join(root, the_file)  
 
+def ascii_hex(a_str):
+    """
+       transform any string in hexa values
+    """
+    new_str = ""
+    for the_char in a_str:
+        new_str += "%s=hex[%s]," % (the_char, hex(ord(the_char)))
+    return new_str
 
+def profile_this(fn):
+    """ profiling decorator """
+    def profiled_fn(*args, **kwargs):
+        import cProfile
+        fpath = fn.__name__ + ".profile"
+        prof  = cProfile.Profile()
+        ret   = prof.runcall(fn, *args, **kwargs)
+        prof.dump_stats(fpath)
+        return ret
+    return profiled_fn
+                
+def convert_to_unicode(a_str):
+    """
+       Try to get the stdin encoding and use it to convert the input string into unicode.
+       It is dependent on the platform (mac osx,linux, windows 
+    """
+    #encoding can be forced from conf
+    term_encoding = get_conf_defaults().get('Localisation', 'term_encoding', None)
+    if not term_encoding:
+        term_encoding = locale.getpreferredencoding() #use it to find the encoding for text terminal
+        if not term_encoding:
+            loc = locale.getdefaultlocale() #try to get defaultlocale()
+            if loc and len(loc) == 2:
+                term_encoding = loc[1]
+            else:
+                LOG.debug("Odd. loc = %s. Do not specify the encoding, let Python do its own investigation" % (loc))
+    else:
+        LOG.debug("Encoding forced. Read it from [Localisation]:term_encoding=%s" % (term_encoding))
+        
+    try: #encode
+        u_str = unicode(a_str, term_encoding, errors='ignore')
+           
+        LOG.debug("raw unicode     = %s." % (u_str))
+        LOG.debug("chosen encoding = %s." % (term_encoding))
+        LOG.debug("unicode_escape val = %s." % ( u_str.encode('unicode_escape')))
+    except Exception, err:
+        LOG.error(err)
+        get_exception_traceback()
+        LOG.debug("Cannot convert to unicode from encoding:%s" % (term_encoding)) #add error
+        u_str = unicode(a_str, errors='ignore')
+
+    LOG.debug("hexval %s" % (ascii_hex(u_str)))
+    
+    return u_str
+                
 @memoized
 def get_home_dir_path():
     """
-       Get the Home dir
+       Get the gmvault dir
     """
     gmvault_dir = os.getenv("GMVAULT_DIR", None)
     
     # check by default in user[HOME]
     if not gmvault_dir:
-        LOG.debug("no ENV variable $GMVAULT_DIR defined. Set by default $GMVAULT_DIR to $HOME/.gmvault (%s/.gmvault)" % (os.getenv("HOME",".")))
+        LOG.debug("no ENV variable $GMVAULT_DIR defined. Set by default $GMVAULT_DIR to $HOME/.gmvault (%s/.gmvault)" \
+                  % (os.getenv("HOME",".")))
         gmvault_dir = "%s/.gmvault" % (os.getenv("HOME", "."))
     
     #create dir if not there
     makedirs(gmvault_dir)
     
     return gmvault_dir
-            
-if __name__ == '__main__':
-   
-    timer = Timer()
+
+CONF_FILE = "gmvault_defaults.conf"
+
+@memoized
+def get_conf_defaults():
+    """
+       Return the conf object containing the defaults stored in HOME/gmvault_defaults.conf
+       Beware it is memoized
+    """
+    filepath = get_conf_filepath()
     
-    timer.start()
+    if filepath:
+        
+        os.environ[gmv.conf.conf_helper.Conf.ENVNAME] = filepath
     
-    import time
-    time.sleep(3)
+        the_cf = gmv.conf.conf_helper.Conf.get_instance()
     
-    print(timer.elapsed())
+        LOG.debug("Load defaults from %s" % (filepath))
+        
+        return the_cf
+    else:
+        return gmv.conf.conf_helper.MockConf() #retrun MockObject that will play defaults
+    
+#VERSION DETECTION PATTERN
+VERSION_PATTERN  = r'\s*conf_version=\s*(?P<version>\S*)\s*'
+VERSION_RE  = re.compile(VERSION_PATTERN)
+
+#list of version conf to not overwrite with the next
+VERSIONS_TO_PRESERVE = [ '1.9' ]
+
+def _get_version_from_conf(home_conf_file):
+    """
+       Check if the config file need to be replaced because it comes from an older version
+    """
+    #check version
+    ver = None
+    with open(home_conf_file) as curr_fd:
+        for line in curr_fd:
+            line = line.strip()
+            matched = VERSION_RE.match(line)
+            if matched:
+                ver = matched.group('version')
+                return ver.strip()
+    
+    return ver
+
+def _create_default_conf_file(home_conf_file):
+    """
+       Write on disk the default file
+    """
+    LOG.critical("Create defaults in %s. Please touch this file only if you know what to do." % home_conf_file)
+    try:
+        with open(home_conf_file, "w+") as f:
+            f.write(gmvault_const.DEFAULT_CONF_FILE)
+        return home_conf_file
+    except Exception, err:
+        #catch all error and let run gmvault with defaults if needed
+        LOG.critical("Ignore Error when trying to create conf file for defaults in %s:\n%s.\n" % (get_home_dir_path(), err))
+        LOG.debug("=== Exception traceback ===")
+        LOG.debug(get_exception_traceback())
+        LOG.debug("=== End of Exception traceback ===\n")
+        #return default file instead
+
+@memoized
+def get_conf_filepath():
+    """
+       If default file is not present, generate it from scratch.
+       If it cannot be created, then return None
+    """
+    home_conf_file = "%s/%s" % (get_home_dir_path(), CONF_FILE)
+    
+    if not os.path.exists(home_conf_file):
+        return _create_default_conf_file(home_conf_file)
+    else:
+        # check if the conf file needs to be replaced
+        version = _get_version_from_conf(home_conf_file)
+        if version not in VERSIONS_TO_PRESERVE:
+            LOG.debug("%s with version %s is too old, overwrite it with the latest file." \
+                       % (home_conf_file, version))
+            return _create_default_conf_file(home_conf_file)    
+    
+    return home_conf_file
+
+
+def chunker(seq, size):
+    """Returns the contents of `seq` in chunks of up to `size` items."""
+    return (seq[pos:pos + size] for pos in xrange(0, len(seq), size))
+
+
+def escape_url(text):
+  """
+  Escape characters as expected in OAUTH 5.1
+  :param text: the escaped url
+  :return: escaped url
+  """
+  return urllib.quote(text, safe='~-._')
+
+
+def unescape_url(text):
+  """
+  Unescaped characters when needed (see OAUTH 5.1)
+  :param text:
+  :return: unescaped url
+  """
+  return urllib.unquote(text)
+
+def format_url_params(params):
+  """
+  Formats given parameters as URL query string.
+  :param params: a python dict
+  :return: A URL query string version of the given dict.
+  """
+  param_elements = []
+  for param in sorted(params.iteritems(), key=lambda x: x[0]):
+    param_elements.append('%s=%s' % (param[0], escape_url(param[1])))
+  return '&'.join(param_elements)

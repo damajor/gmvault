@@ -1,4 +1,4 @@
-'''
+"""
     Gmvault: a tool to backup and restore your gmail account.
     Copyright (C) <2011-2012>  <guillaume Aubert (guillaume dot aubert at gmail do com)>
 
@@ -14,38 +14,37 @@
 
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
-'''
+"""
 
 import os
-from setuptools import setup, find_packages
+from setuptools import setup
 
 #function to find the version in gmv_cmd
 
 def find_version(path):
+    with open(path, 'r') as f:
+        for line in f:
+            index = line.find('GMVAULT_VERSION = "')
+            if index > -1:
+                print(line[index+19:-2])
+                res = line[index+19:-2]
+                return res.strip()
 
-    fd = open(path,"r")
+    raise Exception("Cannot find GMVAULT_VERSION in %s\n" % path)
 
-    for line in fd:
-        index = line.find("GMVAULT_VERSION=\"")
-        if index > -1:
-            print(line[index+17:-2])
-            fd.close()
-            return line[index+17:-2]
+path = os.path.join(os.path.dirname(__file__), './src/gmv/gmvault_utils.py')
+print("PATH = %s\n" % path)
 
-    raise Exception("Cannot find GMVAULT_VERSION in %s\n" % (path))
+version = find_version(os.path.join(os.path.dirname(__file__),
+                                    './src/gmv/gmvault_utils.py'))
 
-
-path=os.path.join(os.path.dirname(__file__),'./src/gmv/gmv_cmd.py')
-print("PATH = %s\n" % (path))
-
-version = find_version(os.path.join(os.path.dirname(__file__),'./src/gmv/gmv_cmd.py'))
-
-print("Gmvault version = %s\n" % (version))
+print("Gmvault version = %s\n" % version)
 README = os.path.join(os.path.dirname(__file__), './README.md')
 if os.path.exists(README):
-	long_description = open(README).read() + 'nn'
+    with open(README, 'r') as f:
+        long_description = f.read() + 'nn'
 else:
-   long_description = "Gmvault"
+    long_description = 'Gmvault'
 
 setup(name='gmvault',
       version=version,
@@ -53,7 +52,7 @@ setup(name='gmvault',
       long_description=long_description,
       classifiers=[
         "Programming Language :: Python",
-        "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+        "License :: OSI Approved :: GNU Affero General Public License v3",
         "Topic :: Communications :: Email",
         "Topic :: Communications :: Email :: Post-Office :: IMAP",
         ],
@@ -61,12 +60,12 @@ setup(name='gmvault',
       author='Guillaume Aubert',
       author_email='guillaume.aubert@gmail.com',
       url='http://www.gmvault.org',
-      license='GPLv3',
-      packages=['gmv'],
-      package_dir = {'gmv':'./src/gmv'},
+      license='AGPLv3',
+      packages=['gmv','gmv.conf', 'gmv.conf.utils'],
+      package_dir = {'gmv': './src/gmv'},
       scripts=['./etc/scripts/gmvault'],
       package_data={'': ['release-note.txt']},
       include_package_data=True,
-      #install_requires=['argparse','Logbook==0.3', 'IMAPClient==0.8.1','gdata==2.0.17']
-      install_requires=['Logbook==0.3', 'IMAPClient==0.8.1','gdata==2.0.17']
+      #install_requires=['argparse', 'Logbook==0.4.1', 'IMAPClient==0.9.2','gdata==2.0.17']
+      install_requires=['argparse', 'Logbook==0.9.0', 'IMAPClient==0.12', 'chardet==2.3.0']
       )

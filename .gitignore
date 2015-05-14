@@ -3,5 +3,11 @@
 *.o
 *.class
 gmvault.log
+.DS_Store
 dists/disstoolbox-dist/build
 dists/disstoolbox-dist/build/*
+.idea/
+.idea/*
+build/
+gmvault.egg-info/
+

@@ -1,31 +1,34 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #set -x
 
 # force a friendly umask
 umask 002
 
-# Runs on Linux
+# Runs on Mac OS X
 #################################
 ## GMVAULT Distribution home directory
 #################################
-HERE=$(unset CDPATH; cd `dirname $0`; pwd)
-GMVAULT_HOME=$(unset CDPATH; cd $HERE/..; pwd)
+ABSPATH="$(perl -e "use Cwd 'abs_path'; print abs_path('$0')")"
+CDIR=`dirname "$ABSPATH"`
+HERE=$(unset CDPATH; cd "$CDIR"; pwd)
+GMVAULT_HOME=$(unset CDPATH; cd "$HERE/.."; pwd)
+
 
 #################################
 ## setup PYTHON_BIN
 #################################
 #look as if it was the packaged binary distribution
-if [ -f "$GMVAULT_HOME/lib/gmv_cmd.app/Contents/MacOS/gmv_cmd" ]; then
-    GMV_BIN=$GMVAULT_HOME/lib/gmv_cmd.app/Contents/MacOS/gmv_cmd
+if [ -f "$GMVAULT_HOME/lib/gmv_runner.app/Contents/MacOS/gmv_runner" ]; then
+    GMV_BIN="$GMVAULT_HOME/lib/gmv_runner.app/Contents/MacOS/gmv_runner"
 
 else
-    echo "Error: Cannot find the gmv_cmd.app. Please check where the gmv_cmd.app is."
-    echo "It should be under GMVAULT_HOME/lib"
+    echo "Error: Cannot find the gmv_runner.app. Please check where the gmv_runner.app is."
+    echo "It should be under $GMVAULT_HOME/lib"
     exit 1
 fi
 
 ##### execute it ##########
-$GMV_BIN "$@"
+"$GMV_BIN" "$@"
 res="$?"
 
 exit $res

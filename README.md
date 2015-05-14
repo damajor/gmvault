@@ -1,15 +1,26 @@
 # Gmvault: Backup and restore your gmail account
 
+
+
 Gmvault is a tool for backing up your gmail account and never lose email correspondence.
-Gmvault is open source and under GPLv3.
+Gmvault is open source and under GNU-AGPL-3.0.
 
 For further info go [gmvault.org] (http://gmvault.org)
+
+# Contribute
+
+[![Bountysource](https://www.bountysource.com/badge/tracker?tracker_id=56851)](https://www.bountysource.com/trackers/56851-gaubert-gmvault?utm_source=56851&utm_medium=shield&utm_campaign=TRACKER_BADGE)
+
+- Check for open issues or open a fresh issue to start a discussion around a feature idea or a bug. There will be a Contributor Friendly tag for issues that should be ideal for people who are not very familiar with the codebase yet.
+- Fork the reporsitory on Github to start making your changes to the **master** branch (or branch off of it).
+- Write a test which shows that the bug was fixed or that the feature works as expected.
+- Send a pull request and bug the maintainer until it gets merged and published. :) Make sure to add yourself to AUTHOR.
 
 # Quick Start
 
 ## Installation
 
-You can download one of the "binary" distribution from (github.com/download) for the platform of your choice.
+You can download one of the "binary" distribution from (http://gmvault.org/download.html) for the platform of your choice.
 You can also install the software from the source from (github.com/gaubert/gmvault).
 
 ## Windows install
@@ -72,7 +83,7 @@ $>gmvault restore newfoo.bar@gmail.com -d /backup/emails-db
 
 Will restore /backup/emails-db in newfoo.bar@gmail.com
 
-Use --restart to restart from the last fatal error and not reupload once more the already treated emails.
+Use --resume or --restart to restart from the last fatal error and not reupload once more the already treated emails.
 
 $>gmvault restore newfoo.bar@gmail.com --restart
 

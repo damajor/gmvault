@@ -1,6 +1,6 @@
 '''
     Gmvault: a tool to backup and restore your gmail account.
-    Copyright (C) <2011-2012>  <guillaume Aubert (guillaume dot aubert at gmail do com)>
+    Copyright (C) <since 2011>  <guillaume Aubert (guillaume dot aubert at gmail do com)>
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -46,11 +46,11 @@ def read_password_file(a_path):
     """
        Read log:pass from a file in my home
     """
-    pass_file = open(a_path)
-    line = pass_file.readline()
-    (login, passwd) = line.split(":")
-    
-    return (deobfuscate_string(login.strip()), deobfuscate_string(passwd.strip()))
+    with open(a_path) as f:
+        line = f.readline()
+        login, passwd = line.split(":")
+
+    return deobfuscate_string(login.strip()), deobfuscate_string(passwd.strip())
 
 def delete_db_dir(a_db_dir):
     """
@@ -160,7 +160,7 @@ class TestSandbox(unittest.TestCase): #pylint:disable-msg=R0904
             print("\nUnmatched")
     
     
-    def test_memory_error_bug(self):
+    def ztest_memory_error_bug(self):
         """
            Try to push the memory error
         """
@@ -168,17 +168,19 @@ class TestSandbox(unittest.TestCase): #pylint:disable-msg=R0904
         import sys
         import gmv.gmv_cmd as gmv_cmd
         import email
-        
-        fd = open('/Users/gaubert/gmvault-data/gmvault-db-bug/db/2004-10/1399791159741721320.eml')
-        email_body = fd.read()
+
+        with open('/Users/gaubert/gmvault-data/gmvault-db-bug/db/2004-10/1399791159741721320.eml') as f:
+            email_body = f.read()
         mail = email.message_from_string(email_body)
 
         print mail
-        
-        sys.argv = ['gmvault.py', 'restore', '--db-dir', '/Users/gaubert/gmvault-data/gmvault-db-bug', 'gsync.mtester@gmail.com']
-        
+
+        sys.argv = ['gmvault.py', 'restore', '--db-dir',
+                    '/Users/gaubert/gmvault-data/gmvault-db-bug',
+                    'gsync.mtester@gmail.com']
+
         gmv_cmd.bootstrap_run()
-        
+
     def ztest_retry_mode(self):
         """
            Test that the decorators are functionning properly
@@ -225,6 +227,35 @@ class TestSandbox(unittest.TestCase): #pylint:disable-msg=R0904
         import os
         for root, dirs, files in os.walk('/Users/gaubert/Dev/projects/gmvault/src/gmv/gmvault-db/db'):
             print("root: %s, sub-dirs : %s, files = %s" % (root, dirs, files))
+    
+    def ztest_get_subdir_info(self):
+        """
+           test get subdir info
+        """
+        import gmv.gmvault as gmv
+        
+        storer = gmv.GmailStorer("/Users/gaubert/gmvault-db")
+        
+        storer.init_sub_chats_dir()
+       
+        
+    
+    def ztest_ordered_os_walk(self):
+        """
+           test ordered os walk
+        """
+        import gmv.gmvault_utils as gmvu
+        
+        for vals in gmvu.ordered_dirwalk('/home/aubert/gmvault-db.old/db', a_wildcards="*.meta"):
+            print("vals = %s\n" % (vals))
+            pass
+        
+        import os
+        for root, dirs, files in os.walk('/Users/gaubert/Dev/projects/gmvault/src/gmv/gmvault-db/db'):
+            print("root: %s, sub-dirs : %s, files = %s" % (root, dirs, files))
+            
+            
+    
     
     def ztest_logging(self):
         """

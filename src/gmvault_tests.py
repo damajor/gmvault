@@ -1,6 +1,6 @@
 '''
     Gmvault: a tool to backup and restore your gmail account.
-    Copyright (C) <2011-2012>  <guillaume Aubert (guillaume dot aubert at gmail do com)>
+    Copyright (C) <since 2011>  <guillaume Aubert (guillaume dot aubert at gmail do com)>
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -39,11 +39,11 @@ def read_password_file(a_path):
     """
        Read log:pass from a file in my home
     """
-    pass_file = open(a_path)
-    line = pass_file.readline()
-    (login, passwd) = line.split(":")
-    
-    return (deobfuscate_string(login.strip()), deobfuscate_string(passwd.strip()))
+    with open(a_path) as f:
+        line = f.readline()
+        login, passwd = line.split(":")
+
+    return deobfuscate_string(login.strip()), deobfuscate_string(passwd.strip())
 
 def delete_db_dir(a_db_dir):
     """
@@ -682,6 +682,26 @@ class TestGMVault(unittest.TestCase): #pylint:disable-msg=R0904
         syncer = gmvault.GMVaulter(db_dir, 'imap.gmail.com', 993, self.login, credential, 'verySecRetKeY')
         
         syncer._create_update_sync([142221L], compress = True)
+        
+    def test_check_flags(self):
+        """
+           Check flags 
+        """
+        credential    = { 'type' : 'passwd', 'value': self.passwd}
+        #print("credential %s\n" % (credential))
+        gimap = imap_utils.GIMAPFetcher('imap.gmail.com', 993, self.login, credential)
+        
+        gimap.connect()
+       
+        imap_ids  = [155182]
+        gmail_id = 1405877259414135030
+
+        imap_ids = [155070]
+        
+        #res = gimap.fetch(imap_ids, [gimap.GMAIL_ID, gimap.IMAP_FLAGS])
+        res = gimap.fetch(imap_ids, gimap.GET_ALL_BUT_DATA)
+        
+        print(res)
         
         
 
